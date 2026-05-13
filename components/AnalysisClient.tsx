@@ -4,6 +4,7 @@ import { useSession, signIn } from "next-auth/react";
 import { UploadSection } from "./UploadSection";
 import { ResultsPanel } from "./ResultsPanel";
 import { BlurredPlaceholder } from "./BlurredPlaceholder";
+import { PricingModal } from "./PricingModal";
 import { AnalysisResult } from "./types";
 
 type AppState = "idle" | "analyzing" | "done" | "error";
@@ -14,12 +15,14 @@ export function AnalysisClient() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
 
-  // Analysis always runs — no auth gate before upload
   const handleAnalyze = async (file: File, previewUrl: string) => {
     setAppState("analyzing");
     setErrorMsg(null);
+    setErrorCode(null);
     setResult(null);
     setImageUrl(previewUrl);
     setRevealed(false);
@@ -40,6 +43,16 @@ export function AnalysisClient() {
       }
 
       if (!res.ok || (data.error && data.error !== null)) {
+        const code = typeof data.error === "string" ? data.error : null;
+        setErrorCode(code);
+
+        if (code === "NO_CREDITS") {
+          setAppState("error");
+          setErrorMsg("You've used all your credits.");
+          setShowPricing(true);
+          return;
+        }
+
         setErrorMsg(
           typeof data.message === "string"
             ? data.message
@@ -47,6 +60,13 @@ export function AnalysisClient() {
         );
         setAppState("error");
         return;
+      }
+
+      // Sync credits remaining to header
+      if (typeof data.creditsRemaining === "number") {
+        window.dispatchEvent(
+          new CustomEvent("credits-updated", { detail: { credits: data.creditsRemaining } })
+        );
       }
 
       setResult(data as unknown as AnalysisResult);
@@ -63,6 +83,7 @@ export function AnalysisClient() {
     setResult(null);
     setImageUrl(null);
     setErrorMsg(null);
+    setErrorCode(null);
     setRevealed(false);
   };
 
@@ -73,6 +94,19 @@ export function AnalysisClient() {
 
   return (
     <>
+      {/* ── Pricing Modal (no credits) ── */}
+      {showPricing && (
+        <PricingModal
+          reason="no_credits"
+          onClose={() => setShowPricing(false)}
+          onSuccess={(newCredits) => {
+            setShowPricing(false);
+            window.dispatchEvent(new CustomEvent("credits-updated", { detail: { credits: newCredits } }));
+            handleReset();
+          }}
+        />
+      )}
+
       {/* ── Analyzing spinner ── */}
       {isAnalyzing && imageUrl && (
         <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6 mb-10">
@@ -106,12 +140,24 @@ export function AnalysisClient() {
       {appState === "error" && (
         <div className="mb-6 p-5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="flex-1">
-            <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">Analysis Failed</p>
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">
+              {errorCode === "NO_CREDITS" ? "No Credits Remaining" : "Analysis Failed"}
+            </p>
             <p className="text-xs text-red-600 dark:text-red-500">{errorMsg}</p>
           </div>
-          <button onClick={handleReset} className="shrink-0 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition-colors">
-            Try Again
-          </button>
+          <div className="flex gap-2 shrink-0 flex-wrap">
+            {errorCode === "NO_CREDITS" && (
+              <button
+                onClick={() => setShowPricing(true)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl transition-colors"
+              >
+                ✦ Buy Credits
+              </button>
+            )}
+            <button onClick={handleReset} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition-colors">
+              Try Again
+            </button>
+          </div>
         </div>
       )}
 
@@ -193,15 +239,13 @@ export function AnalysisClient() {
                 </p>
               </div>
 
-              {/* Google button — matches reference image style */}
+              {/* Google button */}
               <button
                 onClick={() => signIn("google", { callbackUrl: "/" })}
                 className="flex items-center gap-3 px-6 py-4 rounded-2xl font-semibold text-sm sm:text-base text-gray-900 transition-all active:scale-[0.97] hover:opacity-90"
                 style={{ backgroundColor: "#e8e8e8" }}
               >
-                {/* Orange dot like reference */}
                 <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
-                {/* Google G */}
                 <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />

@@ -1,4 +1,12 @@
 import { NextRequest } from "next/server";
+import { auth } from "../../../auth";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 
 function randScore(): number {
   // Random float between 7.5 and 10.0, one decimal
@@ -320,6 +328,30 @@ function generateResult() {
 
 export async function POST(req: NextRequest) {
   try {
+    // ── Auth check ──────────────────────────────────────────────────────────
+    const session = await auth();
+    if (!session?.user?.email) {
+      return Response.json(
+        { error: "UNAUTHORIZED", message: "Please sign in to generate a report." },
+        { status: 401 }
+      );
+    }
+
+    // ── Credit check ─────────────────────────────────────────────────────────
+    const { data: user } = await supabase
+      .from("users")
+      .select("credits")
+      .eq("email", session.user.email)
+      .single();
+
+    const currentCredits = user?.credits ?? 0;
+    if (currentCredits < 1) {
+      return Response.json(
+        { error: "NO_CREDITS", message: "You have no credits left. Please buy more to continue." },
+        { status: 402 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get("image") as File | null;
 
@@ -342,10 +374,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── Debit 1 credit ───────────────────────────────────────────────────────
+    await supabase
+      .from("users")
+      .update({ credits: currentCredits - 1, updated_at: new Date().toISOString() })
+      .eq("email", session.user.email);
+
     // Simulate a brief processing delay for realism
     await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
 
-    return Response.json(generateResult());
+    return Response.json({ ...generateResult(), creditsRemaining: currentCredits - 1 });
   } catch (err) {
     console.error("[analyze] unexpected error:", err);
     return Response.json(
