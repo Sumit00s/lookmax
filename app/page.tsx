@@ -9,12 +9,12 @@ export default function Home() {
 
         {/* Title — fully server-rendered, picked up by search crawlers */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-6xl font-serif text-gray-900 dark:text-gray-100 mb-6 tracking-tight">
+          <h1 className="text-4xl md:text-6xl font-serif text-gray-900 dark:text-gray-100 mb-6 tracking-tight" style={{ fontFamily: "var(--font-bodoni), 'Bodoni Moda', Georgia, serif" }}>
             Facial Aesthetics Report
           </h1>
           <div className="flex items-center justify-center gap-4">
             <div className="h-[1px] bg-gray-300 dark:bg-gray-700 flex-1 max-w-[60px] md:max-w-[120px]" />
-            <p className="text-[0.6rem] md:text-xs font-bold tracking-widest text-gray-600 dark:text-gray-400 uppercase">
+            <p className="text-[0.6rem] md:text-xs font-bold tracking-widest text-gray-600 dark:text-gray-400 uppercase" style={{ fontFamily: "var(--font-bodoni), 'Bodoni Moda', Georgia, serif" }}>
               Analysis for Personal Development &amp; Presentation Optimization
             </p>
             <div className="h-[1px] bg-gray-300 dark:bg-gray-700 flex-1 max-w-[60px] md:max-w-[120px]" />

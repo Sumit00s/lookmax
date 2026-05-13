@@ -29,10 +29,10 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-800 bg-[#faf9f6] dark:bg-[#1a1a1a] transition-colors duration-200">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-8">
+      <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-8 max-w-5xl">
 
         {/* Logo */}
-        <span className="text-2xl font-black tracking-tight text-gray-900 dark:text-gray-100">
+        <span className="text-2xl font-black tracking-tight text-gray-900 dark:text-gray-100" style={{ fontFamily: "var(--font-bodoni), 'Bodoni Moda', Georgia, serif" }}>
           Lookmax
         </span>
 
