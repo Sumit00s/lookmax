@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import React from "react";
 import { useSession, signIn } from "next-auth/react";
 import { UploadSection } from "./UploadSection";
 import { ResultsPanel } from "./ResultsPanel";
@@ -15,9 +16,23 @@ export function AnalysisClient() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
+  // Keep a ref to the raw File so we can upload it after analysis
+  const pendingFileRef = React.useRef<File | null>(null);
+
+  // Silently upload photo to Supabase Storage (fire-and-forget)
+  const uploadPhotoToStorage = async (file: File) => {
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      await fetch("/api/upload-photo", { method: "POST", body: fd });
+    } catch {
+      // Non-critical — don't surface storage errors to the user
+    }
+  };
 
   // Analysis always runs — no auth gate before upload
   const handleAnalyze = async (file: File, previewUrl: string) => {
+    pendingFileRef.current = file;
     setAppState("analyzing");
     setErrorMsg(null);
     setResult(null);
@@ -52,6 +67,10 @@ export function AnalysisClient() {
       setResult(data as unknown as AnalysisResult);
       setAppState("done");
       setTimeout(() => setRevealed(true), 100);
+      // Upload photo to Supabase in the background (only if logged in)
+      if (session?.user?.email && pendingFileRef.current) {
+        uploadPhotoToStorage(pendingFileRef.current);
+      }
     } catch {
       setErrorMsg("A network error occurred. Please check your connection and try again.");
       setAppState("error");
